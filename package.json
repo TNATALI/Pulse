@@ -1,0 +1,35 @@
+{
+  "name": "pulse",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Slack + GitHub analytics dashboard",
+  "workspaces": [
+    "packages/*",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "docker compose up",
+    "dev:backend": "npm run -w backend dev",
+    "dev:frontend": "npm run -w frontend dev",
+    "build": "npm run -w @pulse/shared build && npm run -w backend build && npm run -w frontend build",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:push": "npm run -w backend db:push",
+    "db:generate": "npm run -w backend db:generate",
+    "db:seed": "tsx scripts/seed.ts"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.18.0",
+    "@eslint/js": "^9.18.0",
+    "typescript-eslint": "^8.21.0",
+    "eslint-config-prettier": "^10.0.1",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3",
+    "tsx": "^4.19.2"
+  }
+}
