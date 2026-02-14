@@ -1,6 +1,6 @@
 import { pgTable, uuid, varchar, text, boolean, jsonb, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core';
-import { channels } from './channels.js';
-import { users } from './users.js';
+import { channels } from './channels';
+import { users } from './users';
 
 export const messages = pgTable(
   'messages',

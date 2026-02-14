@@ -1,5 +1,5 @@
 import { pgTable, uuid, varchar, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
-import { workspaces } from './workspaces.js';
+import { workspaces } from './workspaces';
 
 export const settings = pgTable(
   'settings',

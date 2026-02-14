@@ -1,6 +1,6 @@
 FROM node:22-alpine AS base
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json* tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY backend/package.json ./backend/
 RUN npm install
@@ -22,5 +22,5 @@ COPY --from=build /app/backend/package.json ./backend/
 RUN npm install --omit=dev
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/backend/dist ./backend/dist
-EXPOSE 3001
+EXPOSE 3000
 CMD ["node", "backend/dist/index.js"]

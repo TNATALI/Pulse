@@ -8,7 +8,7 @@
 
 ## Key Commands
 - `npm run dev` — Start all services via Docker Compose
-- `npm run -w backend dev` — Backend dev server (port 3001)
+- `npm run -w backend dev` — Backend dev server (port 3000)
 - `npm run -w frontend dev` — Frontend dev server (port 5173)
 - `npm run -w backend db:push` — Push schema to database
 - `npm run -w backend db:generate` — Generate migrations

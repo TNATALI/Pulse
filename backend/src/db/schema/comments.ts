@@ -1,7 +1,7 @@
 import { pgTable, uuid, varchar, text, integer, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core';
-import { workspaces } from './workspaces.js';
-import { issues } from './issues.js';
-import { pullRequests } from './pull-requests.js';
+import { workspaces } from './workspaces';
+import { issues } from './issues';
+import { pullRequests } from './pull-requests';
 
 export const comments = pgTable(
   'comments',

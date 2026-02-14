@@ -105,9 +105,91 @@ export interface ApiError {
   message: string;
 }
 
+// Settings
+export const SETTING_KEYS = [
+  'slack_bot_token',
+  'slack_signing_secret',
+  'github_token',
+  'github_org',
+] as const;
+
+export type SettingKey = (typeof SETTING_KEYS)[number];
+
+export const SENSITIVE_SETTING_KEYS: readonly SettingKey[] = [
+  'slack_bot_token',
+  'slack_signing_secret',
+  'github_token',
+] as const;
+
+export interface SettingResponse {
+  key: SettingKey;
+  value: string | null;
+  isSet: boolean;
+}
+
+export interface SettingInput {
+  key: SettingKey;
+  value: string;
+}
+
+export interface GetSettingsResponse {
+  settings: SettingResponse[];
+}
+
+export interface UpdateSettingsRequest {
+  settings: SettingInput[];
+}
+
+export interface UpdateSettingsResponse {
+  settings: SettingResponse[];
+}
+
+export interface DeleteSettingResponse {
+  success: true;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;
   page: number;
   pageSize: number;
+}
+
+// Slack Analytics
+export interface SlackAnalytics {
+  summary: {
+    totalMessages: number;
+    activeChannels: number;
+    activeUsers: number;
+    messagesToday: number;
+  };
+  messageVolume: { date: string; count: number }[];
+  topChannels: { channelId: string; name: string; messageCount: number }[];
+  topContributors: {
+    userId: string;
+    displayName: string;
+    avatarUrl: string | null;
+    messageCount: number;
+  }[];
+  hourlyActivity: { hour: number; count: number }[];
+  topReactions: { emoji: string; count: number }[];
+}
+
+// Slack Sync
+export interface SlackVerifyResponse {
+  ok: boolean;
+  teamName?: string;
+  teamId?: string;
+  botUserId?: string;
+  error?: string;
+}
+
+export interface SlackSyncRequest {
+  startDate: string; // ISO date string
+  endDate: string; // ISO date string
+}
+
+export interface SlackSyncResponse {
+  jobId: string;
+  message: string;
 }
