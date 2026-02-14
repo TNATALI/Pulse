@@ -155,7 +155,7 @@ export interface PaginatedResponse<T> {
   pageSize: number;
 }
 
-// Slack Analytics
+// Slack Analytics (legacy — kept for backward compat)
 export interface SlackAnalytics {
   summary: {
     totalMessages: number;
@@ -173,6 +173,113 @@ export interface SlackAnalytics {
   }[];
   hourlyActivity: { hour: number; count: number }[];
   topReactions: { emoji: string; count: number }[];
+}
+
+// Filter params for the analytics workbench
+export interface SlackAnalyticsParams {
+  channelIds?: string[];
+  userId?: string;
+  startDate?: string; // ISO date
+  endDate?: string; // ISO date
+}
+
+// Enhanced analytics response (superset of SlackAnalytics)
+export interface SlackAnalyticsResponse {
+  summary: {
+    totalMessages: number;
+    activeChannels: number;
+    activeUsers: number;
+    threadedMessages: number;
+    broadcastMessages: number;
+    threadRatio: number;
+  };
+  messageVolume: { date: string; count: number }[];
+  topChannels: { channelId: string; name: string; messageCount: number }[];
+  topContributors: {
+    userId: string;
+    displayName: string;
+    avatarUrl: string | null;
+    messageCount: number;
+    threadCount: number;
+    reactionsReceived: number;
+  }[];
+  hourlyActivity: { hour: number; count: number }[];
+  topReactions: { emoji: string; count: number }[];
+  mentionPairs: {
+    fromUserId: string;
+    fromDisplayName: string;
+    toUserId: string;
+    toDisplayName: string;
+    count: number;
+  }[];
+}
+
+// User deep-dive
+export interface UserAnalytics {
+  user: { userId: string; displayName: string; avatarUrl: string | null };
+  totalMessages: number;
+  threadReplies: number;
+  reactionsReceived: number;
+  reactionsGiven: number;
+  mentionedByCount: number;
+  mentionsOthersCount: number;
+  topChannels: { channelId: string; name: string; messageCount: number }[];
+  dailyActivity: { date: string; count: number }[];
+  hourlyActivity: { hour: number; count: number }[];
+}
+
+// Channel picker
+export interface ChannelListItem {
+  id: string;
+  name: string;
+  memberCount: number;
+  messageCount: number;
+}
+
+// Dashboard insights
+export interface DashboardInsights {
+  summary: {
+    totalMessages: number;
+    activeChannels: number;
+    activeUsers: number;
+    threadRatio: number;
+  };
+  weekOverWeek: {
+    messagesThisWeek: number;
+    messagesLastWeek: number;
+    changePercent: number;
+    activeUsersThisWeek: number;
+    activeUsersLastWeek: number;
+    usersChangePercent: number;
+  };
+  decliningChannels: {
+    channelId: string;
+    name: string;
+    currentCount: number;
+    previousCount: number;
+    changePercent: number;
+  }[];
+  risingChannels: {
+    channelId: string;
+    name: string;
+    currentCount: number;
+    previousCount: number;
+    changePercent: number;
+  }[];
+  quietUsers: {
+    userId: string;
+    displayName: string;
+    avatarUrl: string | null;
+    currentCount: number;
+    previousCount: number;
+  }[];
+  topThreadStarters: {
+    userId: string;
+    displayName: string;
+    avatarUrl: string | null;
+    threadCount: number;
+  }[];
+  recentActivity: { date: string; count: number }[];
 }
 
 // Slack Sync

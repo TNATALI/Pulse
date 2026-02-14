@@ -1,13 +1,15 @@
 import { FastifyInstance } from 'fastify';
 import { eq, and } from 'drizzle-orm';
 import { getSlackAnalytics } from '../services/slack-analytics.js';
+import { getChannelList } from '../services/channel-list.js';
+import { getUserAnalytics } from '../services/user-analytics.js';
 import { verifySlackToken } from '../services/slack-verify.js';
 import { decrypt } from '../services/encryption.js';
 import { db } from '../db/connection.js';
 import { settings } from '../db/schema/settings.js';
 import { workspaces } from '../db/schema/workspaces.js';
 import { slackSyncQueue } from '../workers/queue.js';
-import type { SlackSyncRequest, SlackSyncResponse, SlackVerifyResponse } from '@pulse/shared';
+import type { SlackAnalyticsParams, SlackSyncRequest, SlackSyncResponse, SlackVerifyResponse } from '@pulse/shared';
 
 async function getDefaultWorkspaceId(): Promise<string> {
   const existing = await db.select().from(workspaces).limit(1);
@@ -28,9 +30,51 @@ async function getDecryptedSetting(workspaceId: string, key: string): Promise<st
   return decrypt(rows[0].encryptedValue);
 }
 
+function parseChannelIds(raw: string | string[] | undefined): string[] | undefined {
+  if (!raw) return undefined;
+  if (Array.isArray(raw)) return raw.filter(Boolean);
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export async function slackRoutes(app: FastifyInstance) {
-  app.get('/analytics', async () => {
-    return getSlackAnalytics();
+  // Analytics with optional filter params
+  app.get('/analytics', async (request) => {
+    const query = request.query as Record<string, string | undefined>;
+    const params: SlackAnalyticsParams = {};
+
+    if (query.startDate) params.startDate = query.startDate;
+    if (query.endDate) params.endDate = query.endDate;
+    const channelIds = parseChannelIds(query.channelIds);
+    if (channelIds && channelIds.length > 0) params.channelIds = channelIds;
+    if (query.userId) params.userId = query.userId;
+
+    return getSlackAnalytics(params);
+  });
+
+  // Channel list for filter dropdown
+  app.get('/channels', async () => {
+    return getChannelList();
+  });
+
+  // User deep-dive
+  app.get('/user/:userId', async (request, reply) => {
+    const { userId } = request.params as { userId: string };
+    const query = request.query as Record<string, string | undefined>;
+
+    const params: Omit<SlackAnalyticsParams, 'userId'> = {};
+    if (query.startDate) params.startDate = query.startDate;
+    if (query.endDate) params.endDate = query.endDate;
+    const channelIds = parseChannelIds(query.channelIds);
+    if (channelIds && channelIds.length > 0) params.channelIds = channelIds;
+
+    const result = await getUserAnalytics(userId, params);
+    if (!result) {
+      return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'User not found' });
+    }
+    return result;
   });
 
   app.post('/verify-token', async (_request, reply) => {

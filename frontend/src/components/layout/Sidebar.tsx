@@ -43,7 +43,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         `}
       >
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
-          <span className="text-xl font-bold text-white">Pulse</span>
+            <a href="/" className="text-xl font-bold text-white hover:text-gray-200 transition-colors">
+            Pulse
+            </a>
           {/* Close button — mobile only */}
           <button
             onClick={onClose}

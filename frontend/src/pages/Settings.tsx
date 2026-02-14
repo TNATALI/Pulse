@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSettings, useUpdateSettings, useDeleteSetting } from '../api/hooks/useSettings';
+import { useSettings, useUpdateSettings, useDeleteSetting, useResetData } from '../api/hooks/useSettings';
 import { useVerifySlackToken, useTriggerSlackSync } from '../api/hooks/useSlackSync';
 import { Toast } from '../components/common/Toast';
 import type { SettingKey, SettingInput, SlackVerifyResponse } from '@pulse/shared';
@@ -31,11 +31,14 @@ export function Settings() {
   const deleteMutation = useDeleteSetting();
   const verifyMutation = useVerifySlackToken();
   const syncMutation = useTriggerSlackSync();
+  const resetMutation = useResetData();
 
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [dirtyKeys, setDirtyKeys] = useState<Set<string>>(new Set());
   const [verifyResult, setVerifyResult] = useState<SlackVerifyResponse | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
 
   const thirtyDaysAgo = formatDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
   const today = formatDate(new Date());
@@ -306,7 +309,92 @@ export function Settings() {
           onDelete={handleDelete}
           isDeleting={deleteMutation.isPending}
         />
+
+        {/* Danger Zone */}
+        <div className="bg-white rounded-lg border-2 border-red-300 p-6">
+          <h2 className="text-lg font-medium text-red-700 mb-1">Danger Zone</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Irreversible actions that permanently delete data from this workspace.
+          </p>
+          <div className="flex items-center justify-between rounded-md border border-red-200 bg-red-50 p-4">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Reset all data</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Permanently delete all synced Slack and GitHub data (messages, channels, users, issues, PRs, reactions, mentions). Settings and workspace configuration will be preserved.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setResetDialogOpen(true);
+                setResetConfirmText('');
+              }}
+              className="ml-4 shrink-0 rounded-md border border-red-600 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-600 hover:text-white transition-colors"
+            >
+              Reset all data
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Reset confirmation dialog */}
+      {resetDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setResetDialogOpen(false)}
+          />
+          <div className="relative bg-white rounded-lg border border-gray-200 shadow-xl w-full max-w-md mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Are you absolutely sure?</h3>
+            <div className="rounded-md bg-yellow-50 border border-yellow-200 p-3 mb-4">
+              <p className="text-sm text-yellow-800">
+                <strong>Warning:</strong> This action cannot be undone. This will permanently delete
+                all synced data including messages, channels, users, issues, pull requests,
+                reactions, and mentions.
+              </p>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">
+              To confirm, type <strong className="font-mono text-red-600">RESET ALL DATA</strong> below:
+            </p>
+            <input
+              type="text"
+              value={resetConfirmText}
+              onChange={(e) => setResetConfirmText(e.target.value)}
+              placeholder="RESET ALL DATA"
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 font-mono mb-4"
+              autoFocus
+            />
+            {resetMutation.isError && (
+              <div className="mb-4 rounded-md bg-red-50 border border-red-200 p-2">
+                <p className="text-xs text-red-700">Reset failed: {resetMutation.error.message}</p>
+              </div>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setResetDialogOpen(false)}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  resetMutation.mutate(undefined, {
+                    onSuccess: () => {
+                      setResetDialogOpen(false);
+                      setResetConfirmText('');
+                      setVerifyResult(null);
+                      setToast({ message: 'All data has been reset successfully.', type: 'success' });
+                    },
+                  });
+                }}
+                disabled={resetConfirmText !== 'RESET ALL DATA' || resetMutation.isPending}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {resetMutation.isPending ? 'Resetting...' : 'I understand, reset all data'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <Toast

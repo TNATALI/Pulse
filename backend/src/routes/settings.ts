@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { SETTING_KEYS, type SettingKey } from '@pulse/shared';
 import { getAllSettings, upsertSettings, deleteSetting } from '../services/settings.js';
+import { resetAllData } from '../services/reset-data.js';
 
 export async function settingsRoutes(app: FastifyInstance) {
   app.get('/', async () => {
@@ -37,5 +38,20 @@ export async function settingsRoutes(app: FastifyInstance) {
 
     await deleteSetting(key as SettingKey);
     return { success: true };
+  });
+
+  app.post('/reset-data', async (request, reply) => {
+    const { confirmation } = (request.body ?? {}) as { confirmation?: string };
+
+    if (confirmation !== 'RESET ALL DATA') {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'You must send { "confirmation": "RESET ALL DATA" } to confirm.',
+      });
+    }
+
+    const result = await resetAllData();
+    return { success: true, ...result };
   });
 }

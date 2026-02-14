@@ -38,3 +38,16 @@ export function useDeleteSetting() {
     },
   });
 }
+
+export function useResetData() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.post<{ success: true; tablesCleared: string[] }>('/api/settings/reset-data', {
+        confirmation: 'RESET ALL DATA',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+    },
+  });
+}
