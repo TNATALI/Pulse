@@ -34,7 +34,7 @@ export function Settings() {
   const resetMutation = useResetData();
 
   const [formValues, setFormValues] = useState<Record<string, string>>({});
-  const [dirtyKeys, setDirtyKeys] = useState<Set<string>>(new Set());
+  const [dirtyKeys, setDirtyKeys] = useState<Set<SettingKey>>(new Set());
   const [verifyResult, setVerifyResult] = useState<SlackVerifyResponse | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -70,46 +70,69 @@ export function Settings() {
 
   const handleChange = useCallback((key: string, value: string) => {
     setFormValues((prev) => ({ ...prev, [key]: value }));
-    setDirtyKeys((prev) => new Set(prev).add(key));
+    setDirtyKeys((prev) => new Set(prev).add(key as SettingKey));
   }, []);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     const inputs: SettingInput[] = [];
+    const keysToDelete: SettingKey[] = [];
+    const settingsMap = new Map(data?.settings.map((s) => [s.key, s]) ?? []);
+
     for (const key of dirtyKeys) {
       const value = formValues[key];
       if (value && value.length > 0) {
         inputs.push({ key: key as SettingKey, value });
+      } else if (settingsMap.get(key)?.isSet) {
+        keysToDelete.push(key as SettingKey);
       }
     }
+
+    if (inputs.length === 0 && keysToDelete.length === 0) return;
+
+    const promises: Promise<unknown>[] = [];
+
     if (inputs.length > 0) {
-      updateMutation.mutate(
-        { settings: inputs },
-        {
-          onSuccess: () => {
-            // If slack_bot_token was changed, re-verify
-            if (dirtyKeys.has('slack_bot_token')) {
-              setVerifyResult(null);
-              verifyMutation.mutate(undefined, {
-                onSuccess: (result) => setVerifyResult(result),
-              });
-            }
-          },
-        },
+      promises.push(updateMutation.mutateAsync({ settings: inputs }));
+    }
+
+    // Use mutateAsync sequentially for deletes to avoid useMutation cancellation
+    if (keysToDelete.length > 0) {
+      promises.push(
+        (async () => {
+          for (const key of keysToDelete) {
+            await deleteMutation.mutateAsync(key);
+          }
+        })(),
       );
     }
-  }, [dirtyKeys, formValues, updateMutation, verifyMutation]);
 
-  const handleDelete = useCallback(
+    try {
+      await Promise.all(promises);
+    } catch {
+      // errors are already handled by React Query state
+    }
+
+    // Re-verify slack token if it was changed or deleted
+    if (dirtyKeys.has('slack_bot_token')) {
+      setVerifyResult(null);
+      const tokenStillSet = inputs.some((i) => i.key === 'slack_bot_token');
+      if (tokenStillSet) {
+        verifyMutation.mutate(undefined, {
+          onSuccess: (result) => setVerifyResult(result),
+        });
+      }
+    }
+  }, [dirtyKeys, formValues, data, updateMutation, deleteMutation, verifyMutation]);
+
+  const handleClearField = useCallback(
     (key: SettingKey) => {
-      deleteMutation.mutate(key, {
-        onSuccess: () => {
-          if (key === 'slack_bot_token') {
-            setVerifyResult(null);
-          }
-        },
-      });
+      setFormValues((prev) => ({ ...prev, [key]: '' }));
+      setDirtyKeys((prev) => new Set(prev).add(key));
+      if (key === 'slack_bot_token') {
+        setVerifyResult(null);
+      }
     },
-    [deleteMutation],
+    [],
   );
 
   const handleSync = useCallback(() => {
@@ -132,7 +155,7 @@ export function Settings() {
     );
   }, [startDate, endDate, syncMutation]);
 
-  const hasDirtyChanges = dirtyKeys.size > 0 && Array.from(dirtyKeys).some((k) => formValues[k]?.length > 0);
+  const hasDirtyChanges = dirtyKeys.size > 0;
   const isTokenVerified = verifyResult?.ok === true;
 
   if (isLoading) {
@@ -238,7 +261,7 @@ export function Settings() {
                     />
                     {setting?.isSet && (
                       <button
-                        onClick={() => handleDelete(field.key)}
+                        onClick={() => handleClearField(field.key)}
                         disabled={deleteMutation.isPending}
                         className="rounded-md border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
                         title={`Remove ${field.label}`}
@@ -306,7 +329,7 @@ export function Settings() {
           formValues={formValues}
           dirtyKeys={dirtyKeys}
           onChange={handleChange}
-          onDelete={handleDelete}
+          onDelete={handleClearField}
           isDeleting={deleteMutation.isPending}
         />
 
