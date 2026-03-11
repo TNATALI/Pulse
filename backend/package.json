@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.0.0",
+    "@octokit/auth-app": "^7.2.1",
+    "@octokit/rest": "^21.1.1",
     "@pulse/shared": "*",
     "@slack/web-api": "^7.14.1",
     "bullmq": "^5.34.8",

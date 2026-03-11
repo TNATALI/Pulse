@@ -2,10 +2,12 @@ import { buildApp } from './app.js';
 import { config } from './config.js';
 import { logger } from './lib/logger.js';
 import { startSlackSyncWorker } from './workers/slack-sync.js';
+import { startGitHubSyncWorker } from './workers/github-sync.js';
 
 async function main() {
   const app = await buildApp();
   startSlackSyncWorker();
+  startGitHubSyncWorker();
 
   try {
     await app.listen({ port: config.port, host: config.host });

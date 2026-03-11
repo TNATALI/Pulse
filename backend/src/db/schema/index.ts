@@ -9,3 +9,5 @@ export { pullRequests } from './pull-requests';
 export { comments } from './comments';
 export { syncState } from './sync-state';
 export { settings } from './settings';
+export { repositories } from './repositories';
+export { commits } from './commits';

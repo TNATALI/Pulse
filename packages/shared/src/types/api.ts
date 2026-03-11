@@ -111,6 +111,9 @@ export const SETTING_KEYS = [
   'slack_signing_secret',
   'github_token',
   'github_org',
+  'github_app_id',
+  'github_app_private_key',
+  'github_app_installation_id',
 ] as const;
 
 export type SettingKey = (typeof SETTING_KEYS)[number];
@@ -119,6 +122,7 @@ export const SENSITIVE_SETTING_KEYS: readonly SettingKey[] = [
   'slack_bot_token',
   'slack_signing_secret',
   'github_token',
+  'github_app_private_key',
 ] as const;
 
 export interface SettingResponse {
@@ -299,4 +303,134 @@ export interface SlackSyncRequest {
 export interface SlackSyncResponse {
   jobId: string;
   message: string;
+}
+
+// GitHub
+export interface GitHubRepository {
+  id: string;
+  workspaceId: string;
+  githubId: number;
+  fullName: string;
+  name: string;
+  owner: string;
+  description: string | null;
+  private: boolean;
+  fork: boolean;
+  defaultBranch: string;
+  language: string | null;
+  stargazersCount: number;
+  forksCount: number;
+  openIssuesCount: number;
+  topics: string[];
+  htmlUrl: string;
+  pushedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GitHubSyncReposResponse {
+  jobId: string;
+  message: string;
+}
+
+export interface GitHubVerifyResponse {
+  ok: boolean;
+  appId?: number;
+  installationId?: number;
+  account?: string | null;
+  error?: string;
+}
+
+// ─── GitHub Analytics ────────────────────────────────────────────────────────
+
+export interface GitHubAnalyticsParams {
+  repoIds?: string[]; // DB UUIDs from the repositories table
+  startDate: string;  // YYYY-MM-DD
+  endDate: string;    // YYYY-MM-DD
+  contributor?: string; // GitHub login
+}
+
+export interface GitHubOverviewData {
+  summary: {
+    totalRepos: number;
+    openPRs: number;
+    mergedPRs: number;
+    openIssues: number;
+    closedIssues: number;
+    activeContributors: number;
+    avgMergeTimeDays: number | null;
+  };
+  prActivity: { week: string; opened: number; merged: number }[];
+  issueActivity: { week: string; opened: number; closed: number }[];
+  reposByLanguage: { language: string; count: number }[];
+  topActiveRepos: { repo: string; prCount: number; issueCount: number }[];
+}
+
+export interface GitHubContributorStat {
+  login: string;
+  prsAuthored: number;
+  prsMerged: number;
+  prsReviewed: number;
+  issuesOpened: number;
+  commits: number;
+  mergeRate: number;
+}
+
+export interface GitHubContributorsData {
+  contributors: GitHubContributorStat[];
+  commitActivity: { week: string; login: string; commits: number }[];
+}
+
+export interface GitHubPRHealthData {
+  summary: {
+    openPRs: number;
+    stalePRs: number;
+    avgCycleTimeDays: number | null;
+    mergeRate: number;
+  };
+  cycleTimeTrend: { week: string; avgDays: number }[];
+  stalePRList: {
+    repo: string;
+    number: number;
+    title: string;
+    author: string | null;
+    ageDays: number;
+    htmlUrl: string;
+  }[];
+  mergeRateByRepo: { repo: string; merged: number; total: number; mergeRate: number }[];
+}
+
+export interface GitHubCodeReviewData {
+  reviewerAuthorMatrix: { reviewer: string; author: string; count: number }[];
+  topReviewers: { login: string; reviewCount: number; reposReviewed: number }[];
+  contributorBalance: { login: string; prsAuthored: number; prsReviewed: number }[];
+}
+
+export interface GitHubIssuesData {
+  summary: {
+    openIssues: number;
+    closedIssues: number;
+    avgCloseTimeDays: number | null;
+  };
+  velocity: { week: string; opened: number; closed: number }[];
+  labelBreakdown: { label: string; count: number }[];
+  oldestOpenIssues: {
+    repo: string;
+    number: number;
+    title: string;
+    author: string | null;
+    ageDays: number;
+    labels: string[];
+  }[];
+  byRepo: { repo: string; open: number; closed: number }[];
+}
+
+export interface GitHubDataSyncResponse {
+  jobId: string;
+  message: string;
+}
+
+export interface GitHubSyncStatus {
+  repos: { status: string; lastSyncAt: string | null; error?: string | null };
+  analytics: { status: string; lastSyncAt: string | null; error?: string | null };
 }

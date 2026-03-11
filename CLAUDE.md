@@ -19,8 +19,9 @@
 - UUIDs for all primary keys
 - AES-256-GCM encryption for stored API tokens
 - Upsert-friendly schemas with unique indexes
-- Docker-first development with hot reload
 - Shared types package (`@pulse/shared`) for API contracts
+
+- Add docker changes only after local dev verification on explicit command
 
 ## Database
 - PostgreSQL 15, schema defined in `backend/src/db/schema/`
