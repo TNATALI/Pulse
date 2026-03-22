@@ -10,7 +10,7 @@ interface LineChartProps {
   dateRange?: { start: string; end: string };
 }
 
-const MARGIN = { top: 20, right: 20, bottom: 50, left: 55 };
+const MARGIN = { top: 20, right: 20, bottom: 80, left: 55 };
 const WIDTH = 500;
 const HEIGHT = 300;
 
@@ -82,7 +82,11 @@ export function LineChart({ data, color = '#4f46e5', xLabel, yLabel, dateRange }
           .tickFormat(tickFormat as any),
       )
       .selectAll('text')
-      .attr('font-size', '11px');
+      .attr('font-size', '11px')
+      .attr('text-anchor', 'end')
+      .attr('dx', '-0.6em')
+      .attr('dy', '0.15em')
+      .attr('transform', 'rotate(-90)');
 
     g.append('g').call(d3.axisLeft(y).ticks(5)).selectAll('text').attr('font-size', '11px');
 

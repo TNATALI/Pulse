@@ -45,7 +45,7 @@ export function IssuesReport({ params }: Props) {
           <h3 className="text-base font-medium text-gray-900 mb-4">Issue Velocity (weekly)</h3>
           {data.velocity.length > 0 ? (
             <BarChart
-              data={data.velocity.map((d) => ({ label: d.week.slice(5), value: d.opened }))}
+              data={data.velocity.map((d) => ({ label: `${d.week.slice(5)}-${d.week.slice(0, 4)}`, value: d.opened }))}
               orientation="vertical"
               color="#3b82f6"
               xLabel="Week"

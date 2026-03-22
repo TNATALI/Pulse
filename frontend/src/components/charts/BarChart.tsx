@@ -10,9 +10,9 @@ interface BarChartProps {
   tickInterval?: number;
 }
 
-const MARGIN = { top: 20, right: 20, bottom: 50, left: 55 };
-const WIDTH = 500;
-const HEIGHT = 300;
+const MARGIN = { top: 20, right: 20, bottom: 120, left: 55 };
+const WIDTH = 640;
+const HEIGHT = 380;
 
 export function BarChart({
   data,
@@ -56,12 +56,16 @@ export function BarChart({
       const x = d3.scaleBand().domain(data.map((d) => d.label)).range([0, innerWidth]).padding(0.3);
       const y = d3.scaleLinear().domain([0, d3.max(data, (d) => d.value) ?? 0]).nice().range([innerHeight, 0]);
 
-      // X axis — filter ticks if tickInterval is set
+      // X axis — auto-compute tick interval so labels never crowd each other.
+      // Each rotated label needs ~40px of vertical space; if the caller passes
+      // an explicit tickInterval that is stricter, honour that instead.
+      const autoInterval = Math.ceil(data.length / Math.floor(innerWidth / 40));
+      const effectiveInterval = Math.max(autoInterval, tickInterval && tickInterval > 1 ? tickInterval : 1);
       const xAxis = d3.axisBottom(x);
-      if (tickInterval && tickInterval > 1) {
+      if (effectiveInterval > 1) {
         xAxis.tickValues(
           data
-            .filter((_, i) => i % tickInterval === 0)
+            .filter((_, i) => i % effectiveInterval === 0)
             .map((d) => d.label),
         );
       }
@@ -69,7 +73,11 @@ export function BarChart({
         .attr('transform', `translate(0,${innerHeight})`)
         .call(xAxis)
         .selectAll('text')
-        .attr('font-size', '11px');
+        .attr('font-size', '11px')
+        .attr('text-anchor', 'end')
+        .attr('dx', '-0.6em')
+        .attr('dy', '0.15em')
+        .attr('transform', 'rotate(-90)');
 
       // Y axis
       g.append('g').call(d3.axisLeft(y).ticks(5)).selectAll('text').attr('font-size', '11px');
@@ -94,11 +102,12 @@ export function BarChart({
           hideTooltip();
         });
 
-      // X axis label
+      // X axis label — placed at the very bottom of the margin area,
+      // clear of the rotated tick labels which extend ~80px below the axis.
       if (xLabel) {
         g.append('text')
           .attr('x', innerWidth / 2)
-          .attr('y', innerHeight + 40)
+          .attr('y', innerHeight + MARGIN.bottom - 8)
           .attr('text-anchor', 'middle')
           .attr('font-size', '12px')
           .attr('fill', '#6b7280')
