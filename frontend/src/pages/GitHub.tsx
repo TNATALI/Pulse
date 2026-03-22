@@ -86,14 +86,23 @@ function RepoSelector({
   onChange: (ids: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState('');
 
   const selectedSet = new Set(selected);
   const label =
     selected.length === 0
       ? 'All repositories'
       : selected.length === 1
-        ? repos.find((r) => r.id === selected[0])?.name ?? '1 repo'
+        ? repos.find((r) => r.id === selected[0])?.fullName ?? '1 repo'
         : `${selected.length} repos`;
+
+  const filtered = filter.trim()
+    ? repos.filter(
+        (r) =>
+          r.fullName.toLowerCase().includes(filter.toLowerCase()) ||
+          (r.language ?? '').toLowerCase().includes(filter.toLowerCase()),
+      )
+    : repos;
 
   const toggle = (id: string) => {
     const next = new Set(selectedSet);
@@ -102,59 +111,101 @@ function RepoSelector({
     onChange(Array.from(next));
   };
 
+  const handleOpen = () => {
+    setFilter('');
+    setOpen((o) => !o);
+  };
+
   return (
     <div className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 shadow-sm"
-      >
-        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 12h18M3 17h18" />
-        </svg>
-        <span className="max-w-[180px] truncate">{label}</span>
-        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={handleOpen}
+          className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 shadow-sm"
+        >
+          <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 12h18M3 17h18" />
+          </svg>
+          <span className="max-w-xs truncate">{label}</span>
+          <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {selected.length > 0 && (
+          <button
+            onClick={() => onChange([])}
+            className="text-gray-400 hover:text-gray-600 text-xs px-1"
+            title="Clear selection"
+          >
+            ✕
+          </button>
+        )}
+      </div>
 
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1 z-20 w-72 rounded-lg border border-gray-200 bg-white shadow-lg py-1 max-h-72 overflow-y-auto">
-            <button
-              onClick={() => { onChange([]); setOpen(false); }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 ${selected.length === 0 ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
-            >
-              All repositories
-            </button>
-            <div className="border-t border-gray-100 my-1" />
-            {repos.map((repo) => (
-              <button
-                key={repo.id}
-                onClick={() => toggle(repo.id)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 text-left"
-              >
-                <span
-                  className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                    selectedSet.has(repo.id)
-                      ? 'bg-blue-600 border-blue-600'
-                      : 'border-gray-300'
-                  }`}
+          <div className="absolute left-0 top-full mt-1 z-20 w-120 rounded-lg border border-gray-200 bg-white shadow-lg">
+            {/* Search input */}
+            <div className="px-3 pt-2 pb-1">
+              <input
+                autoFocus
+                type="text"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Filter repositories…"
+                className="w-full rounded border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+            </div>
+
+            <div className="max-h-64 overflow-y-auto py-1">
+              {/* All repositories option — only show when no filter active */}
+              {!filter && (
+                <>
+                  <button
+                    onClick={() => { onChange([]); setOpen(false); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 ${selected.length === 0 ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                  >
+                    All repositories
+                  </button>
+                  <div className="border-t border-gray-100 my-1" />
+                </>
+              )}
+
+              {filtered.length === 0 && (
+                <p className="px-3 py-2 text-sm text-gray-400">No repositories match.</p>
+              )}
+
+              {filtered.map((repo) => (
+                <button
+                  key={repo.id}
+                  onClick={() => toggle(repo.id)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 text-left"
                 >
-                  {selectedSet.has(repo.id) && (
-                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </span>
-                <span className="flex-1 min-w-0">
-                  <span className="truncate block text-gray-800">{repo.fullName}</span>
-                  {repo.language && (
-                    <span className="text-xs text-gray-400">{repo.language}</span>
-                  )}
-                </span>
-              </button>
-            ))}
+                  <span
+                    className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                      selectedSet.has(repo.id)
+                        ? 'bg-blue-600 border-blue-600'
+                        : 'border-gray-300'
+                    }`}
+                  >
+                    {selectedSet.has(repo.id) && (
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="flex-1 min-w-0 flex items-center gap-2">
+                    <span className="truncate text-gray-800">{repo.fullName}</span>
+                    {repo.language && (
+                      <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
+                        {repo.language}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </>
       )}

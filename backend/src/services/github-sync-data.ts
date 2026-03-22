@@ -150,6 +150,53 @@ async function syncRepoPRs(
 
 // ─── Issues ──────────────────────────────────────────────────────────────────
 
+async function upsertIssueItems(
+  workspaceId: string,
+  fullName: string,
+  items: Awaited<ReturnType<Octokit['rest']['issues']['listForRepo']>>['data'],
+): Promise<number> {
+  let count = 0;
+  for (const item of items) {
+    if (item.pull_request) continue; // issues API returns PRs too
+
+    const labelNames = item.labels
+      .map((l: string | { name?: string }) => (typeof l === 'string' ? l : l.name ?? ''))
+      .filter(Boolean) as string[];
+
+    const now = new Date();
+    await db
+      .insert(issues)
+      .values({
+        workspaceId,
+        githubId: item.id,
+        repo: fullName,
+        number: item.number,
+        title: item.title,
+        state: item.state,
+        authorGithubUsername: item.user?.login ?? null,
+        assigneeGithubUsername: item.assignee?.login ?? null,
+        labels: labelNames,
+        createdAt: new Date(item.created_at),
+        updatedAt: new Date(item.updated_at),
+        closedAt: item.closed_at ? new Date(item.closed_at) : null,
+      })
+      .onConflictDoUpdate({
+        target: [issues.workspaceId, issues.githubId],
+        set: {
+          title: item.title,
+          state: item.state,
+          assigneeGithubUsername: item.assignee?.login ?? null,
+          labels: labelNames,
+          updatedAt: new Date(item.updated_at),
+          closedAt: item.closed_at ? new Date(item.closed_at) : null,
+        },
+      });
+
+    count++;
+  }
+  return count;
+}
+
 async function syncRepoIssues(
   octokit: Octokit,
   workspaceId: string,
@@ -158,15 +205,43 @@ async function syncRepoIssues(
   since: string,
 ): Promise<number> {
   const fullName = `${owner}/${repo}`;
-  let page = 1;
   let count = 0;
 
+  // ── Pass 1: all open issues, no `since` filter ────────────────────────────
+  // Fetching open issues without a date filter guarantees we capture every
+  // open issue regardless of how long ago it was last updated. Open issues
+  // typically number in the hundreds, well under GitHub's 1 000-item
+  // offset-pagination limit that causes a 422 on page 11+.
+  let page = 1;
   while (true) {
     const response = await retryPolicy.execute(() =>
       octokit.rest.issues.listForRepo({
         owner,
         repo,
-        state: 'all',
+        state: 'open',
+        sort: 'created',
+        direction: 'desc',
+        per_page: 100,
+        page,
+      }),
+    );
+    const items = response.data;
+    if (items.length === 0) break;
+    count += await upsertIssueItems(workspaceId, fullName, items);
+    if (items.length < 100) break;
+    page++;
+  }
+
+  // ── Pass 2: recently closed issues, with `since` filter ──────────────────
+  // Uses the cursor so incremental syncs only fetch newly-closed issues.
+  // Closed issues across all time can be thousands; `since` keeps this safe.
+  page = 1;
+  while (true) {
+    const response = await retryPolicy.execute(() =>
+      octokit.rest.issues.listForRepo({
+        owner,
+        repo,
+        state: 'closed',
         sort: 'updated',
         direction: 'desc',
         since,
@@ -174,50 +249,9 @@ async function syncRepoIssues(
         page,
       }),
     );
-
     const items = response.data;
     if (items.length === 0) break;
-
-    for (const item of items) {
-      // Skip pull requests returned by the issues API
-      if (item.pull_request) continue;
-
-      const labelNames = item.labels
-        .map((l: string | { name?: string }) => (typeof l === 'string' ? l : l.name ?? ''))
-        .filter(Boolean) as string[];
-
-      const now = new Date();
-      await db
-        .insert(issues)
-        .values({
-          workspaceId,
-          githubId: item.id,
-          repo: fullName,
-          number: item.number,
-          title: item.title,
-          state: item.state,
-          authorGithubUsername: item.user?.login ?? null,
-          assigneeGithubUsername: item.assignee?.login ?? null,
-          labels: labelNames,
-          createdAt: new Date(item.created_at),
-          updatedAt: new Date(item.updated_at),
-          closedAt: item.closed_at ? new Date(item.closed_at) : null,
-        })
-        .onConflictDoUpdate({
-          target: [issues.workspaceId, issues.githubId],
-          set: {
-            title: item.title,
-            state: item.state,
-            assigneeGithubUsername: item.assignee?.login ?? null,
-            labels: labelNames,
-            updatedAt: new Date(item.updated_at),
-            closedAt: item.closed_at ? new Date(item.closed_at) : null,
-          },
-        });
-
-      count++;
-    }
-
+    count += await upsertIssueItems(workspaceId, fullName, items);
     if (items.length < 100) break;
     page++;
   }
@@ -287,7 +321,7 @@ async function syncRepoCommits(
 export async function syncAnalyticsData(
   workspaceId: string,
   sinceOverride?: string,
-): Promise<{ prs: number; issues: number; commits: number }> {
+): Promise<{ prs: number; issues: number; commits: number; skippedRepos: string[] }> {
   logger.info({ workspaceId, sinceOverride }, 'Starting GitHub analytics data sync');
   await upsertSyncState(workspaceId, 'syncing');
 
@@ -309,6 +343,7 @@ export async function syncAnalyticsData(
     let totalPRs = 0;
     let totalIssues = 0;
     let totalCommits = 0;
+    const skippedRepos: string[] = [];
 
     for (const repo of repos) {
       const [owner, repoName] = repo.fullName.split('/');
@@ -332,21 +367,22 @@ export async function syncAnalyticsData(
           'Repo analytics sync complete',
         );
       } catch (repoErr) {
-        // Skip repos that are empty, archived, or otherwise inaccessible.
-        // One bad repo should not abort the entire sync.
+        const errMsg = repoErr instanceof Error ? repoErr.message : String(repoErr);
         logger.warn(
-          { repo: repo.fullName, err: repoErr },
+          { repo: repo.fullName, error: errMsg },
           'Skipping repo due to sync error',
         );
+        skippedRepos.push(`${repo.fullName}: ${errMsg}`);
       }
     }
 
-    await upsertSyncState(workspaceId, 'idle');
+    const skippedSummary = skippedRepos.length > 0 ? skippedRepos.join(' | ') : null;
+    await upsertSyncState(workspaceId, 'idle', skippedSummary ?? undefined);
     logger.info(
-      { workspaceId, totalPRs, totalIssues, totalCommits },
+      { workspaceId, totalPRs, totalIssues, totalCommits, skipped: skippedRepos.length },
       'GitHub analytics sync complete',
     );
-    return { prs: totalPRs, issues: totalIssues, commits: totalCommits };
+    return { prs: totalPRs, issues: totalIssues, commits: totalCommits, skippedRepos };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     logger.error({ workspaceId, err }, 'GitHub analytics sync failed');

@@ -27,3 +27,10 @@
 - PostgreSQL 15, schema defined in `backend/src/db/schema/`
 - Drizzle ORM with drizzle-kit for migrations
 - 11 tables: workspaces, users, channels, messages, mentions, reactions, issues, pull_requests, comments, sync_state, settings
+
+
+## memory
+- Never do docker debuging
+- Docker commands build/up commands will be run manually by developer
+- always perform API testing using curl
+- always create separate component

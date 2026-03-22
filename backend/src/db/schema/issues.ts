@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, integer, text, jsonb, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, integer, bigint, text, jsonb, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { workspaces } from './workspaces';
 
 export const issues = pgTable(
@@ -8,7 +8,7 @@ export const issues = pgTable(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
-    githubId: integer('github_id').notNull(),
+    githubId: bigint('github_id', { mode: 'number' }).notNull(),
     repo: varchar('repo', { length: 255 }).notNull(),
     number: integer('number').notNull(),
     title: text('title').notNull(),

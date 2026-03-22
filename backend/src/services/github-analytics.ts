@@ -47,7 +47,7 @@ function repoCondition(repoNames: string[] | null): ReturnType<typeof sql> {
 function issueRepoCondition(repoNames: string[] | null): ReturnType<typeof sql> {
   if (repoNames === null) return sql`TRUE`;
   if (repoNames.length === 0) return sql`FALSE`;
-  return sql`i.repo = ANY(ARRAY[${sql.join(
+  return sql`repo = ANY(ARRAY[${sql.join(
     repoNames.map((n) => sql`${n}`),
     sql`, `,
   )}]::text[])`;
