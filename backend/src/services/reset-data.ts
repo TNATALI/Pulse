@@ -2,8 +2,10 @@ import { sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 
 export async function resetAllData(): Promise<{ tablesCleared: string[] }> {
-  // Truncate ALL tables — full factory reset including settings and workspaces.
+  // Truncate synced data tables — settings and workspaces are preserved.
   const tables = [
+    'scorecard_snapshots',
+    'commits',
     'mentions',
     'reactions',
     'comments',
@@ -11,10 +13,9 @@ export async function resetAllData(): Promise<{ tablesCleared: string[] }> {
     'channels',
     'pull_requests',
     'issues',
+    'repositories',
     'users',
     'sync_state',
-    'settings',
-    'workspaces',
   ];
 
   await db.execute(sql.raw(`TRUNCATE TABLE ${tables.join(', ')} CASCADE`));

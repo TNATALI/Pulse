@@ -18,10 +18,11 @@ function fmtDate(iso: string): string {
   return `${m}-${d}-${y}`;
 }
 
-function scoreColor(score: number): string {
-  if (score >= 8) return '#16a34a'; // green
-  if (score >= 5) return '#d97706'; // amber
-  return '#dc2626';                 // red
+function scoreColor(score: number | null): string {
+  if (score === null) return '#9ca3af'; // gray — not yet fetched
+  if (score >= 8) return '#16a34a';     // green
+  if (score >= 5) return '#d97706';     // amber
+  return '#dc2626';                     // red
 }
 
 export function ScorecardTrendChart({ points, selectedDate, onSelect }: Props) {
@@ -102,12 +103,13 @@ export function ScorecardTrendChart({ points, selectedDate, onSelect }: Props) {
       .attr('fill', '#6b7280')
       .text('Score (0–10)');
 
-    // ── Area fill ─────────────────────────────────────────────────────────────
+    // ── Area fill (skip null-score points) ────────────────────────────────────
     const area = d3
       .area<ScorecardTrendPoint>()
+      .defined((d) => d.score !== null)
       .x((d) => x(d.runDate)!)
       .y0(innerH)
-      .y1((d) => y(d.score))
+      .y1((d) => y(d.score!))
       .curve(d3.curveMonotoneX);
 
     g.append('path')
@@ -116,11 +118,12 @@ export function ScorecardTrendChart({ points, selectedDate, onSelect }: Props) {
       .attr('fill-opacity', 0.07)
       .attr('d', area);
 
-    // ── Line ─────────────────────────────────────────────────────────────────
+    // ── Line (skip null-score points) ─────────────────────────────────────────
     const line = d3
       .line<ScorecardTrendPoint>()
+      .defined((d) => d.score !== null)
       .x((d) => x(d.runDate)!)
-      .y((d) => y(d.score))
+      .y((d) => y(d.score!))
       .curve(d3.curveMonotoneX);
 
     g.append('path')
@@ -153,7 +156,7 @@ export function ScorecardTrendChart({ points, selectedDate, onSelect }: Props) {
       .data(chronological)
       .join('circle')
       .attr('cx', (d) => x(d.runDate)!)
-      .attr('cy', (d) => y(d.score))
+      .attr('cy', (d) => (d.score !== null ? y(d.score) : innerH))
       .attr('r', (d) => (d.runDate === selectedDate ? 6 : 4))
       .attr('fill', (d) => scoreColor(d.score))
       .attr('stroke', (d) => (d.runDate === selectedDate ? '#fff' : 'none'))
@@ -162,13 +165,14 @@ export function ScorecardTrendChart({ points, selectedDate, onSelect }: Props) {
       .on('mousemove', function (event, d) {
         d3.select(this).attr('r', 7);
         if (tooltip) {
+          const scoreLabel = d.score !== null
+            ? `${d.score}${d.isOfficial ? '' : ' (click to load)'}`
+            : '-- (click to load)';
           tooltip
             .style('opacity', '1')
             .style('left', `${event.offsetX + 12}px`)
             .style('top', `${event.offsetY - 32}px`)
-            .html(
-              `<strong>${fmtDate(d.runDate)}</strong><br/>Score: ${d.score}${d.isOfficial ? '' : ' (est.)'}`,
-            );
+            .html(`<strong>${fmtDate(d.runDate)}</strong><br/>Score: ${scoreLabel}`);
         }
       })
       .on('mouseleave', function (_, d) {

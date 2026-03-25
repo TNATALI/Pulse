@@ -66,15 +66,6 @@ function parseScoreMessage(text: string): { score: number; reason: string } {
 }
 
 /**
- * Proxy score for the trend line when we don't have SARIF detail yet.
- * Formula is deliberately simple — it reflects the trend direction, not
- * the exact value. Official score overrides this for the latest point.
- */
-function proxyScore(totalIssues: number): number {
-  return parseFloat(Math.max(0, 10 - totalIssues * 0.5).toFixed(1));
-}
-
-/**
  * Group analyses into runs: analyses whose timestamps fall within a 10-minute
  * window of each other belong to the same Scorecard run (GitHub uploads 3
  * SARIF files per run in quick succession).
@@ -268,11 +259,11 @@ export async function getScorecardHistory(workspaceId: string): Promise<Scorecar
     const commitSha = group[group.length - 1].commit_sha;
     const isLatest = points.length === 0;
 
-    // Priority: official api.scorecard.dev (latest only) → DB-cached SARIF average → proxy
+    // Priority: official api.scorecard.dev (latest only) → DB-cached SARIF average → null
     const score =
       isLatest && officialScore !== null
         ? officialScore
-        : (cachedScores.get(runDate) ?? proxyScore(totalIssues));
+        : (cachedScores.get(runDate) ?? null);
 
     points.push({
       runDate,

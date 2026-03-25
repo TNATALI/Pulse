@@ -443,7 +443,7 @@ export interface ScorecardCheckResult {
 export interface ScorecardTrendPoint {
   runDate: string;        // "2026-03-23"
   commitSha: string;
-  score: number;          // official from api.scorecard.dev for latest, proxy otherwise
+  score: number | null;   // official from api.scorecard.dev, or DB-cached SARIF avg; null if not yet fetched
   isOfficial: boolean;    // true = exact score from api.scorecard.dev
   totalIssues: number;    // sum of results_count across all 3 SARIFs for this run
   analysisIds: number[];  // GitHub code-scanning analysis IDs for this run
