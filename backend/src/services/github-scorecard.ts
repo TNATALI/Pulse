@@ -239,6 +239,24 @@ export async function getScorecardHistory(workspaceId: string): Promise<Scorecar
   // Group analyses into daily runs
   const runsByDate = groupIntoRuns(analyses);
 
+  // Load any previously-computed scores from the DB cache in one query.
+  // These come from detail fetches (SARIF-derived averages) and are accurate.
+  const cachedRows = await db
+    .select({ runDate: scorecardSnapshots.runDate, overallScore: scorecardSnapshots.overallScore })
+    .from(scorecardSnapshots)
+    .where(
+      and(
+        eq(scorecardSnapshots.workspaceId, workspaceId),
+        eq(scorecardSnapshots.repoFullName, repoFullName),
+      ),
+    );
+
+  const cachedScores = new Map<string, number>(
+    cachedRows
+      .filter((r) => r.overallScore != null)
+      .map((r) => [r.runDate, r.overallScore as number]),
+  );
+
   // Build trend points (newest first)
   const datesSorted = [...runsByDate.keys()].sort((a, b) => b.localeCompare(a));
   const points: ScorecardTrendPoint[] = [];
@@ -250,8 +268,11 @@ export async function getScorecardHistory(workspaceId: string): Promise<Scorecar
     const commitSha = group[group.length - 1].commit_sha;
     const isLatest = points.length === 0;
 
+    // Priority: official api.scorecard.dev (latest only) → DB-cached SARIF average → proxy
     const score =
-      isLatest && officialScore !== null ? officialScore : proxyScore(totalIssues);
+      isLatest && officialScore !== null
+        ? officialScore
+        : (cachedScores.get(runDate) ?? proxyScore(totalIssues));
 
     points.push({
       runDate,
