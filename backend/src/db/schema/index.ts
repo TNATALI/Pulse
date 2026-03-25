@@ -11,3 +11,5 @@ export { syncState } from './sync-state';
 export { settings } from './settings';
 export { repositories } from './repositories';
 export { commits } from './commits';
+export { scorecardSnapshots } from './scorecard-snapshots';
+export type { ScorecardCheckRow } from './scorecard-snapshots';

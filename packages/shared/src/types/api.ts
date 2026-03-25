@@ -430,6 +430,40 @@ export interface GitHubDataSyncResponse {
   message: string;
 }
 
+// ─── Scorecard ────────────────────────────────────────────────────────────────
+
+export interface ScorecardCheckResult {
+  name: string;
+  score: number;
+  reason: string;
+  details: string[] | null;
+}
+
+/** One point on the trend line — one Scorecard run per day */
+export interface ScorecardTrendPoint {
+  runDate: string;        // "2026-03-23"
+  commitSha: string;
+  score: number;          // official from api.scorecard.dev for latest, proxy otherwise
+  isOfficial: boolean;    // true = exact score from api.scorecard.dev
+  totalIssues: number;    // sum of results_count across all 3 SARIFs for this run
+  analysisIds: number[];  // GitHub code-scanning analysis IDs for this run
+  repoFullName: string;
+}
+
+export interface ScorecardHistoryResponse {
+  repoFullName: string;
+  points: ScorecardTrendPoint[];
+}
+
+export interface ScorecardDetailResponse {
+  runDate: string;
+  commitSha: string;
+  repoFullName: string;
+  overallScore: number | null;
+  scorecardVersion: string | null;
+  checks: ScorecardCheckResult[];
+}
+
 export interface GitHubSyncStatus {
   repos: { status: string; lastSyncAt: string | null; error?: string | null };
   analytics: { status: string; lastSyncAt: string | null; error?: string | null };

@@ -3,6 +3,7 @@ import { StatCard } from '../../../components/analytics/StatCard';
 import { LineChart } from '../../../components/charts/LineChart';
 import { BarChart } from '../../../components/charts/BarChart';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
+import { ScorecardPanel } from './ScorecardPanel';
 import type { GitHubAnalyticsParams } from '@pulse/shared';
 
 interface Props {
@@ -46,6 +47,9 @@ export function OverviewReport({ params }: Props) {
           subtitle={`${summary.activeContributors} active contributors`}
         />
       </div>
+
+      {/* Scorecard security health */}
+      <ScorecardPanel />
 
       {/* Activity charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

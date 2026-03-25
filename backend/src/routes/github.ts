@@ -13,12 +13,18 @@ import {
   getCodeReviewData,
   getIssuesData,
 } from '../services/github-analytics.js';
+import {
+  getScorecardHistory,
+  getScorecardDetail,
+} from '../services/github-scorecard.js';
 import type {
   GitHubRepository,
   GitHubSyncReposResponse,
   GitHubAnalyticsParams,
   GitHubDataSyncResponse,
   GitHubSyncStatus,
+  ScorecardHistoryResponse,
+  ScorecardDetailResponse,
 } from '@pulse/shared';
 
 async function getDefaultWorkspaceId(): Promise<string> {
@@ -207,5 +213,41 @@ export async function githubRoutes(app: FastifyInstance) {
     const workspaceId = await getDefaultWorkspaceId();
     const params = parseAnalyticsParams(request.query as Record<string, unknown>);
     return getIssuesData(workspaceId, params);
+  });
+
+  // ─── Scorecard ──────────────────────────────────────────────────────────────
+
+  app.get('/scorecard/history', async (_request, reply): Promise<ScorecardHistoryResponse> => {
+    const workspaceId = await getDefaultWorkspaceId();
+    try {
+      return await getScorecardHistory(workspaceId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch Scorecard history';
+      return reply.status(500).send({ statusCode: 500, error: 'Internal Server Error', message });
+    }
+  });
+
+  app.get('/scorecard/detail', async (request, reply): Promise<ScorecardDetailResponse> => {
+    const workspaceId = await getDefaultWorkspaceId();
+    const q = request.query as Record<string, string>;
+    const repoFullName = q.repoFullName ?? '';
+    const runDate = q.runDate ?? '';
+    const analysisIds = (q.analysisIds ?? '')
+      .split(',')
+      .map(Number)
+      .filter((n) => !isNaN(n) && n > 0);
+
+    if (!repoFullName || !runDate || analysisIds.length === 0) {
+      return reply
+        .status(400)
+        .send({ statusCode: 400, error: 'Bad Request', message: 'repoFullName, runDate, and analysisIds are required' });
+    }
+
+    try {
+      return await getScorecardDetail(workspaceId, repoFullName, runDate, analysisIds);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch Scorecard detail';
+      return reply.status(500).send({ statusCode: 500, error: 'Internal Server Error', message });
+    }
   });
 }
