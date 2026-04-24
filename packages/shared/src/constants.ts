@@ -15,7 +15,6 @@ export const JOB_QUEUES = {
 } as const;
 
 export const CACHE_TTL = {
-  DASHBOARD: 60,
   CHANNELS: 300,
   USERS: 300,
 } as const;

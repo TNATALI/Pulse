@@ -82,15 +82,6 @@ export interface PullRequest {
   closedAt: string | null;
 }
 
-export interface DashboardSummary {
-  messageCount: number;
-  activeChannels: number;
-  activeUsers: number;
-  openIssues: number;
-  openPRs: number;
-  avgPRMergeTimeHours: number;
-}
-
 export interface SyncStatus {
   provider: 'slack' | 'github';
   resource: string;
@@ -238,52 +229,6 @@ export interface ChannelListItem {
   name: string;
   memberCount: number;
   messageCount: number;
-}
-
-// Dashboard insights
-export interface DashboardInsights {
-  summary: {
-    totalMessages: number;
-    activeChannels: number;
-    activeUsers: number;
-    threadRatio: number;
-  };
-  weekOverWeek: {
-    messagesThisWeek: number;
-    messagesLastWeek: number;
-    changePercent: number;
-    activeUsersThisWeek: number;
-    activeUsersLastWeek: number;
-    usersChangePercent: number;
-  };
-  decliningChannels: {
-    channelId: string;
-    name: string;
-    currentCount: number;
-    previousCount: number;
-    changePercent: number;
-  }[];
-  risingChannels: {
-    channelId: string;
-    name: string;
-    currentCount: number;
-    previousCount: number;
-    changePercent: number;
-  }[];
-  quietUsers: {
-    userId: string;
-    displayName: string;
-    avatarUrl: string | null;
-    currentCount: number;
-    previousCount: number;
-  }[];
-  topThreadStarters: {
-    userId: string;
-    displayName: string;
-    avatarUrl: string | null;
-    threadCount: number;
-  }[];
-  recentActivity: { date: string; count: number }[];
 }
 
 // Slack Sync

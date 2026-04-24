@@ -18,7 +18,8 @@
     "format:check": "prettier --check .",
     "db:push": "npm run -w backend db:push",
     "db:generate": "npm run -w backend db:generate",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "clean": "rm -rf backend/node_modules backend/dist frontend/node_modules frontend/dist"
   },
   "engines": {
     "node": ">=22.0.0"

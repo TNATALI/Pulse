@@ -2,10 +2,8 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 
 const navItems = [
-  { to: '/', label: 'Dashboard' },
+  { to: '/', label: 'GitHub' },
   { to: '/slack', label: 'Slack' },
-  { to: '/github', label: 'GitHub' },
-  { to: '/people', label: 'People' },
   { to: '/settings', label: 'Settings' },
 ];
 
