@@ -16,6 +16,7 @@ CMD ["npm", "run", "-w", "frontend", "dev"]
 
 ## ---- build: compile frontend assets ----
 FROM base AS build
+RUN npm run -w @pulse/shared build
 RUN npm run -w frontend build
 
 ## ---- prod: nginx serving only static assets ----
