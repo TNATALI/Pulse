@@ -72,7 +72,7 @@ export async function getOverviewData(
   const repoCond = repoCondition(repoNames);
   const { startDate, endDate } = params;
 
-  const [summaryRows, totalRepoRows, prActivityRows, issueActivityRows, langRows, topRepoRows] =
+  const [summaryRows, totalRepoRows, prActivityRows, issueActivityRows, mergeTimeTrendRows, langRows, topRepoRows] =
     await Promise.all([
       // Summary: PR + issue counts + active contributors + avg merge time
       db.execute(sql`
@@ -138,6 +138,19 @@ export async function getOverviewData(
         ORDER BY week
       `),
 
+      // Weekly avg merge time trend
+      db.execute(sql`
+        SELECT
+          to_char(date_trunc('week', merged_at), 'YYYY-MM-DD') AS week,
+          ROUND(AVG(EXTRACT(EPOCH FROM (merged_at - created_at)) / 86400)::numeric, 1) AS avg_days
+        FROM pull_requests
+        WHERE workspace_id = ${workspaceId} AND merged_at IS NOT NULL
+          AND merged_at BETWEEN ${startDate}::date AND ${endDate}::date + interval '1 day'
+          AND ${repoCond}
+        GROUP BY week
+        ORDER BY week
+      `),
+
       // Repos by language
       db.execute(sql`
         SELECT
@@ -185,6 +198,9 @@ export async function getOverviewData(
     issueActivity: (
       issueActivityRows as unknown as { week: string; opened: number; closed: number }[]
     ).map((r) => ({ week: r.week, opened: Number(r.opened), closed: Number(r.closed) })),
+    mergeTimeTrend: (
+      mergeTimeTrendRows as unknown as { week: string; avg_days: number }[]
+    ).map((r) => ({ week: r.week, avgDays: Number(r.avg_days) })),
     reposByLanguage: (langRows as unknown as { language: string; count: number }[]).map((r) => ({
       language: r.language,
       count: Number(r.count),
@@ -590,17 +606,17 @@ export async function getIssuesData(
     ? sql`AND i.author_github_username = ${contributor}`
     : sql``;
 
-  const [summaryRows, velocityRows, labelRows, oldestRows, byRepoRows] = await Promise.all([
-    // Summary
+  const [summaryRows, velocityRows, labelRows, typeRows, oldestRows, byRepoRows, closeTimeTrendRows] = await Promise.all([
+    // Summary — openIssues scoped to selected period
     db.execute(sql`
       SELECT
-        COUNT(*) FILTER (WHERE state = 'open')::int AS open_issues,
+        COUNT(*) FILTER (WHERE state = 'open'
+          AND created_at BETWEEN ${startDate}::date AND ${endDate}::date + interval '1 day')::int AS open_issues,
         COUNT(*) FILTER (WHERE state = 'closed'
           AND closed_at BETWEEN ${startDate}::date AND ${endDate}::date + interval '1 day')::int AS closed_issues,
-        ROUND(AVG(EXTRACT(EPOCH FROM (closed_at - created_at)) / 86400)
-          FILTER (WHERE closed_at IS NOT NULL
-            AND closed_at BETWEEN ${startDate}::date AND ${endDate}::date + interval '1 day')::numeric, 1)
-          AS avg_close_time_days
+        COUNT(DISTINCT author_github_username) FILTER (
+          WHERE created_at BETWEEN ${startDate}::date AND ${endDate}::date + interval '1 day'
+        )::int AS active_contributors
       FROM issues i
       WHERE workspace_id = ${workspaceId} AND ${issueCond} ${authorFilter}
     `),
@@ -633,6 +649,19 @@ export async function getIssuesData(
       GROUP BY label
       ORDER BY count DESC
       LIMIT 20
+    `),
+
+    // Issue type breakdown (native GitHub type field)
+    db.execute(sql`
+      SELECT issue_type AS type, COUNT(*)::int AS count
+      FROM issues i
+      WHERE i.workspace_id = ${workspaceId}
+        AND i.issue_type IS NOT NULL
+        AND i.created_at BETWEEN ${startDate}::date AND ${endDate}::date + interval '1 day'
+        AND ${issueCond}
+        ${authorFilter}
+      GROUP BY issue_type
+      ORDER BY count DESC
     `),
 
     // Oldest open issues
@@ -668,6 +697,21 @@ export async function getIssuesData(
       ORDER BY total DESC
       LIMIT 15
     `),
+
+    // Weekly close time trend
+    db.execute(sql`
+      SELECT
+        to_char(date_trunc('week', closed_at), 'YYYY-MM-DD') AS week,
+        ROUND(AVG(EXTRACT(EPOCH FROM (closed_at - created_at)) / 86400)::numeric, 1) AS avg_days
+      FROM issues i
+      WHERE i.workspace_id = ${workspaceId}
+        AND closed_at IS NOT NULL
+        AND closed_at BETWEEN ${startDate}::date AND ${endDate}::date + interval '1 day'
+        AND ${issueCond}
+        ${authorFilter}
+      GROUP BY week
+      ORDER BY week
+    `),
   ]);
 
   const s = (summaryRows as unknown as Record<string, unknown>[])[0] ?? {};
@@ -676,13 +720,17 @@ export async function getIssuesData(
     summary: {
       openIssues: Number(s.open_issues ?? 0),
       closedIssues: Number(s.closed_issues ?? 0),
-      avgCloseTimeDays: s.avg_close_time_days != null ? Number(s.avg_close_time_days) : null,
+      activeContributors: Number(s.active_contributors ?? 0),
     },
     velocity: (velocityRows as unknown as { week: string; opened: number; closed: number }[]).map(
       (r) => ({ week: r.week, opened: Number(r.opened), closed: Number(r.closed) }),
     ),
     labelBreakdown: (labelRows as unknown as { label: string; count: number }[]).map((r) => ({
       label: r.label,
+      count: Number(r.count),
+    })),
+    typeBreakdown: (typeRows as unknown as { type: string; count: number }[]).map((r) => ({
+      type: r.type,
       count: Number(r.count),
     })),
     oldestOpenIssues: (
@@ -705,5 +753,8 @@ export async function getIssuesData(
     byRepo: (
       byRepoRows as unknown as { repo: string; open: number; closed: number }[]
     ).map((r) => ({ repo: r.repo, open: Number(r.open), closed: Number(r.closed) })),
+    closeTimeTrend: (
+      closeTimeTrendRows as unknown as { week: string; avg_days: number }[]
+    ).map((r) => ({ week: r.week, avgDays: Number(r.avg_days) })),
   };
 }

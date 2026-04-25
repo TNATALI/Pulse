@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   useGitHubRepos,
@@ -14,8 +14,6 @@ import { IssuesReport } from './github/reports/IssuesReport';
 import type { GitHubAnalyticsParams, GitHubRepository } from '@pulse/shared';
 
 // ─── Report registry ──────────────────────────────────────────────────────────
-// To add a new report: import your component and push an entry to this array.
-// Nothing else needs to change.
 
 interface ReportConfig {
   id: string;
@@ -72,6 +70,68 @@ function defaultStart() {
 }
 function defaultEnd() {
   return fmt(new Date());
+}
+
+// ─── PDF download ─────────────────────────────────────────────────────────────
+
+async function downloadAllReportsPDF(container: HTMLElement, dateRange: string) {
+  const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+    import('html2canvas'),
+    import('jspdf'),
+  ]);
+
+  const sections = Array.from(
+    container.querySelectorAll<HTMLElement>('[data-report-section]'),
+  );
+
+  const pageW = 210;
+  const pageH = 297;
+  const margin = 10;
+  const contentW = pageW - margin * 2;
+
+  const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+  let isFirst = true;
+
+  for (const section of sections) {
+    const canvas = await html2canvas(section, {
+      scale: 1.5,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+    });
+
+    if (canvas.width === 0 || canvas.height === 0) continue;
+
+    const imgH = (canvas.height * contentW) / canvas.width;
+
+    if (!isFirst) pdf.addPage();
+    isFirst = false;
+
+    let y = margin;
+    let remaining = imgH;
+
+    while (remaining > 0) {
+      const sliceH = Math.min(remaining, pageH - margin * 2);
+      const srcYRatio = (imgH - remaining) / imgH;
+      const srcHRatio = sliceH / imgH;
+
+      const sliceCanvas = document.createElement('canvas');
+      sliceCanvas.width = canvas.width;
+      sliceCanvas.height = Math.round(canvas.height * srcHRatio);
+      const ctx = sliceCanvas.getContext('2d')!;
+      ctx.drawImage(canvas, 0, -canvas.height * srcYRatio);
+
+      pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, y, contentW, sliceH);
+      remaining -= sliceH;
+
+      if (remaining > 0) {
+        pdf.addPage();
+        y = margin;
+      }
+    }
+  }
+
+  pdf.save(`github-report-${dateRange}.pdf`);
 }
 
 // ─── Repo selector ────────────────────────────────────────────────────────────
@@ -246,6 +306,8 @@ function SyncStatusBadge({ status, lastSyncAt }: { status: string; lastSyncAt: s
 export function GitHubPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const printContainerRef = useRef<HTMLDivElement>(null);
 
   // ── Filters ──
   const [selectedRepos, setSelectedRepos] = useState<string[]>(() =>
@@ -298,6 +360,19 @@ export function GitHubPage() {
     setContributor((prev) => (prev === login ? undefined : login));
   }, []);
 
+  const handleDownloadReport = useCallback(async () => {
+    if (!printContainerRef.current) return;
+    setIsGeneratingPdf(true);
+    try {
+      await downloadAllReportsPDF(
+        printContainerRef.current,
+        `${startDate}_${endDate}`,
+      );
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [startDate, endDate]);
+
   const hasRepos = repos && repos.length > 0;
   const isSyncing =
     syncStatus?.repos.status === 'syncing' || syncStatus?.analytics.status === 'syncing';
@@ -326,7 +401,7 @@ export function GitHubPage() {
   const ReportComponent = reportConfig.component;
 
   return (
-    <div>
+    <div className="relative">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">GitHub Analytics</h1>
@@ -390,6 +465,31 @@ export function GitHubPage() {
             </button>
           )}
         </div>
+
+        {/* Download Report */}
+        <button
+          onClick={handleDownloadReport}
+          disabled={isGeneratingPdf}
+          className="ml-auto flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isGeneratingPdf ? (
+            <>
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Generating…
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+              Download Report
+            </>
+          )}
+        </button>
       </div>
 
       {/* Report tabs */}
@@ -415,6 +515,46 @@ export function GitHubPage() {
         params={analyticsParams}
         onSelectContributor={handleSelectContributor}
       />
+
+      {/* Hidden all-reports print container — captured for PDF download */}
+      <div
+        ref={printContainerRef}
+        style={{
+          position: 'absolute',
+          left: '-9999px',
+          top: 0,
+          width: '1200px',
+          background: '#ffffff',
+          pointerEvents: 'none',
+        }}
+        aria-hidden="true"
+      >
+        {GITHUB_REPORTS.map(({ id, title, description, component: Component }, idx) => (
+          <div
+            key={id}
+            data-report-section={id}
+            style={{
+              padding: '32px',
+              background: '#ffffff',
+              borderTop: idx > 0 ? '8px solid #f3f4f6' : undefined,
+            }}
+          >
+            <div
+              style={{
+                borderBottom: '2px solid #111827',
+                paddingBottom: '12px',
+                marginBottom: '24px',
+              }}
+            >
+              <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: 0 }}>
+                {title}
+              </h2>
+              <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>{description}</p>
+            </div>
+            <Component params={analyticsParams} onSelectContributor={() => {}} />
+          </div>
+        ))}
+      </div>
 
       {toast && (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />

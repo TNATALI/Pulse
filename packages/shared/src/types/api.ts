@@ -307,6 +307,7 @@ export interface GitHubOverviewData {
   };
   prActivity: { week: string; opened: number; merged: number }[];
   issueActivity: { week: string; opened: number; closed: number }[];
+  mergeTimeTrend: { week: string; avgDays: number }[];
   reposByLanguage: { language: string; count: number }[];
   topActiveRepos: { repo: string; prCount: number; issueCount: number }[];
 }
@@ -353,12 +354,14 @@ export interface GitHubCodeReviewData {
 
 export interface GitHubIssuesData {
   summary: {
-    openIssues: number;
-    closedIssues: number;
-    avgCloseTimeDays: number | null;
+    openIssues: number;       // opened in period, still open
+    closedIssues: number;     // closed in period
+    activeContributors: number;
   };
   velocity: { week: string; opened: number; closed: number }[];
   labelBreakdown: { label: string; count: number }[];
+  typeBreakdown: { type: string; count: number }[];
+  closeTimeTrend: { week: string; avgDays: number }[];
   oldestOpenIssues: {
     repo: string;
     number: number;

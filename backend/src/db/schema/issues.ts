@@ -16,6 +16,7 @@ export const issues = pgTable(
     authorGithubUsername: varchar('author_github_username', { length: 255 }),
     assigneeGithubUsername: varchar('assignee_github_username', { length: 255 }),
     labels: jsonb('labels').$type<string[]>().notNull().default([]),
+    issueType: varchar('issue_type', { length: 100 }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     closedAt: timestamp('closed_at', { withTimezone: true }),
