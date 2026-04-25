@@ -22,27 +22,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push backend
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: backend/Dockerfile
-          target: prod
-          push: true
-          tags: zasmlabs/pulse-backend:latest
-          cache-from: type=gha,scope=backend
-          cache-to: type=gha,mode=max,scope=backend
+      - name: Build production images
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml build backend frontend
 
-      - name: Build and push frontend
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: frontend/Dockerfile
-          target: prod
-          push: true
-          tags: zasmlabs/pulse-frontend:latest
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,mode=max,scope=frontend
+      - name: Push images to Docker Hub
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml push backend frontend
 
   deploy:
     name: Deploy to VPS

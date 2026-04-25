@@ -1,0 +1,10 @@
+services:
+  backend:
+    image: zasmlabs/pulse-backend:latest
+    build:
+      target: prod
+
+  frontend:
+    image: zasmlabs/pulse-frontend:latest
+    build:
+      target: prod
