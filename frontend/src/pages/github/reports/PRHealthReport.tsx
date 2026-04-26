@@ -22,6 +22,7 @@ export function PRHealthReport({ params }: Props) {
 
   const { summary } = data;
   const mergeRatePct = Math.round(summary.mergeRate * 100);
+  const totalMerged = data.mergeRateByRepo.reduce((sum, r) => sum + r.merged, 0);
 
   return (
     <div className="space-y-6">
@@ -34,9 +35,9 @@ export function PRHealthReport({ params }: Props) {
           subtitle="open > 7 days"
         />
         <StatCard
-          label="Avg Cycle Time"
-          value={summary.avgCycleTimeDays != null ? `${summary.avgCycleTimeDays}d` : '—'}
-          subtitle="open → merged"
+          label="PRs Merged"
+          value={totalMerged}
+          subtitle="in period"
         />
         <StatCard label="Merge Rate" value={`${mergeRatePct}%`} subtitle="in period" />
       </div>

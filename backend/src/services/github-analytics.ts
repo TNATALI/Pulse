@@ -93,6 +93,7 @@ export async function getOverviewData(
            WHERE workspace_id = ${workspaceId}
              AND created_at BETWEEN ${startDate}::date AND ${endDate}::date + interval '1 day'
              AND author_github_username IS NOT NULL
+             AND author_github_username NOT LIKE '%[bot]%'
              AND ${repoCond}) AS active_contributors,
           (SELECT ROUND(AVG(EXTRACT(EPOCH FROM (merged_at - created_at)) / 86400)::numeric, 1)
            FROM pull_requests
