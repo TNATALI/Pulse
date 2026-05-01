@@ -1,37 +1,51 @@
-## ---- base: install deps + build shared types ----
+# ---------- base: install deps ----------
 FROM node:22-alpine AS base
 WORKDIR /app
-COPY package.json package-lock.json* tsconfig.base.json ./
+
+# Copy root manifests
+COPY package.json package-lock.json* ./
+
+# Copy workspace manifests (for npm install caching)
 COPY packages/shared/package.json ./packages/shared/
 COPY backend/package.json ./backend/
-RUN npm install
-COPY packages/shared ./packages/shared
-COPY backend ./backend
-RUN npm run -w @pulse/shared build
 
-## ---- dev: source is baked in, tsx watch for hot reload ----
-FROM base AS dev
-CMD ["sh", "-c", "cd backend && npx drizzle-kit push && cd /app && npm run -w backend dev"]
+# Install all workspace deps
+RUN npm ci
 
-## ---- build: compile TypeScript ----
+
+# ---------- build: compile all TS using project refs ----------
 FROM base AS build
-RUN npm run -w backend build
 
-## ---- prod: only compiled JS + drizzle schema for migrations ----
+# Copy full source AFTER install (better caching)
+COPY tsconfig.base.json ./
+COPY tsconfig.json ./
+COPY packages ./packages
+COPY backend ./backend
+
+# 🔥 Build entire monorepo (this is the key fix)
+RUN npx tsc -b
+
+
+# ---------- prod: minimal runtime image ----------
 FROM node:22-alpine AS prod
 WORKDIR /app
+
+# Copy only what runtime needs
 COPY --from=build /app/package.json /app/package-lock.json* ./
-COPY --from=build /app/packages/shared/package.json ./packages/shared/
 COPY --from=build /app/backend/package.json ./backend/
-RUN npm install --omit=dev
+COPY --from=build /app/packages/shared/package.json ./packages/shared/
+
+# Install only production deps
+RUN npm ci --omit=dev
+
+# Copy compiled output
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/backend/dist ./backend/dist
-# Include schema source + drizzle config so drizzle-kit push works at startup
-COPY --from=build /app/backend/src/db/schema ./backend/src/db/schema
+
+# (Optional) If you need runtime configs like drizzle
 COPY --from=build /app/backend/drizzle.config.ts ./backend/drizzle.config.ts
-COPY --from=build /app/tsconfig.base.json ./tsconfig.base.json
-COPY --from=build /app/backend/tsconfig.json ./backend/tsconfig.json
-# Install drizzle-kit + tsx for schema push at startup (small addition)
-RUN npm install -w backend drizzle-kit tsx
+COPY --from=build /app/backend/src/db/schema ./backend/src/db/schema
+
 EXPOSE 3000
-CMD ["sh", "-c", "cd backend && npx drizzle-kit push && cd /app && node backend/dist/index.js"]
+
+CMD ["node", "backend/dist/index.js"]
