@@ -75,6 +75,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Test SSH Connection
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection successful'"
+
       - name: Copy pulse/ folder to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
