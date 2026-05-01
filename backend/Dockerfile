@@ -18,12 +18,10 @@ FROM base AS build
 
 # Copy full source AFTER install (better caching)
 COPY tsconfig.base.json ./
-COPY tsconfig.json ./
 COPY packages ./packages
 COPY backend ./backend
 
-# 🔥 Build entire monorepo (this is the key fix)
-RUN npx tsc -b
+RUN npx tsc -b backend/tsconfig.build.json
 
 
 # ---------- prod: minimal runtime image ----------
