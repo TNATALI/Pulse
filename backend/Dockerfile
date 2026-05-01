@@ -2,48 +2,45 @@
 FROM node:22-alpine AS base
 WORKDIR /app
 
-# Copy root manifests
 COPY package.json package-lock.json* ./
-
-# Copy workspace manifests (for npm install caching)
 COPY packages/shared/package.json ./packages/shared/
 COPY backend/package.json ./backend/
 
-# Install all workspace deps
 RUN npm ci
 
 
-# ---------- build: compile all TS using project refs ----------
+# ---------- build: compile TypeScript ----------
 FROM base AS build
 
-# Copy full source AFTER install (better caching)
 COPY tsconfig.base.json ./
-COPY packages ./packages
+COPY packages/shared ./packages/shared
 COPY backend ./backend
 
-RUN npx tsc -b backend/tsconfig.build.json
+# Build shared first so dist/index.d.ts exists when backend resolves @pulse/shared
+RUN npm run -w @pulse/shared build
+RUN npm run -w backend build
 
 
 # ---------- prod: minimal runtime image ----------
 FROM node:22-alpine AS prod
 WORKDIR /app
 
-# Copy only what runtime needs
 COPY --from=build /app/package.json /app/package-lock.json* ./
 COPY --from=build /app/backend/package.json ./backend/
 COPY --from=build /app/packages/shared/package.json ./packages/shared/
 
-# Install only production deps
 RUN npm ci --omit=dev
 
-# Copy compiled output
+# Compiled JS output
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/backend/dist ./backend/dist
 
-# (Optional) If you need runtime configs like drizzle
+# Schema migration support — drizzle-kit push runs at startup via tsx
+COPY --from=build /app/tsconfig.base.json ./tsconfig.base.json
+COPY --from=build /app/backend/tsconfig.json ./backend/tsconfig.json
 COPY --from=build /app/backend/drizzle.config.ts ./backend/drizzle.config.ts
 COPY --from=build /app/backend/src/db/schema ./backend/src/db/schema
+RUN npm install -w backend drizzle-kit tsx
 
 EXPOSE 3000
-
-CMD ["node", "backend/dist/index.js"]
+CMD ["sh", "-c", "cd backend && npx drizzle-kit push && cd /app && node backend/dist/index.js"]
