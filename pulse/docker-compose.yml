@@ -8,6 +8,8 @@ services:
       POSTGRES_DB: pulse
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - pulse_net
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U pulse']
       interval: 10s
@@ -19,6 +21,8 @@ services:
     restart: unless-stopped
     volumes:
       - redisdata:/data
+    networks:
+      - pulse_net
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
@@ -35,7 +39,9 @@ services:
       REDIS_URL: redis://redis:6379
       PORT: 3000
     ports:
-      - '3000:3000'
+      - '127.0.0.1:8080:3000'
+    networks:
+      - pulse_net
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,8 +52,14 @@ services:
     image: zasmlabs/pulse-frontend:latest
     restart: unless-stopped
     ports:
-      - '5173:5173'
+      - '127.0.0.1:8081:5173'
+    networks:
+      - pulse_net
 
 volumes:
   pgdata:
   redisdata:
+
+networks:
+  pulse_net:
+    driver: bridge

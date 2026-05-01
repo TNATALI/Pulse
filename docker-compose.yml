@@ -9,6 +9,8 @@ services:
       - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - pulse_dev_net
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U pulse']
       interval: 5s
@@ -21,6 +23,8 @@ services:
       - '6379:6379'
     volumes:
       - redisdata:/data
+    networks:
+      - pulse_dev_net
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -46,6 +50,8 @@ services:
         condition: service_healthy
     ports:
       - '3000:3000'
+    networks:
+      - pulse_dev_net
     develop:
       watch:
         - action: sync
@@ -68,6 +74,8 @@ services:
       - backend
     ports:
       - '5173:5173'
+    networks:
+      - pulse_dev_net
     develop:
       watch:
         - action: sync
@@ -85,3 +93,7 @@ services:
 volumes:
   pgdata:
   redisdata:
+
+networks:
+  pulse_dev_net:
+    driver: bridge
