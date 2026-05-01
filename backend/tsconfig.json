@@ -1,14 +1,12 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "noEmit": true,
     "paths": {
       "@pulse/shared": ["../packages/shared/src/index.ts"]
     }
   },
-  "include": ["src"],
-  "references": [{ "path": "../packages/shared" }]
+  "include": ["src"]
 }
