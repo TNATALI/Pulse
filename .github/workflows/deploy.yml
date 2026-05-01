@@ -102,5 +102,6 @@ jobs:
             cd ~/apps/pulse
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
             docker compose pull
+            docker compose down
             docker compose up -d --remove-orphans
             docker image prune -f
