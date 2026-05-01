@@ -46,7 +46,7 @@ services:
     image: zasmlabs/pulse-frontend:latest
     restart: unless-stopped
     ports:
-      - '5173:80'
+      - '5173:5173'
 
 volumes:
   pgdata:

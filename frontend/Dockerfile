@@ -34,5 +34,5 @@ RUN npm run -w frontend build
 # ---------- prod: nginx serving static assets ----------
 FROM nginx:alpine AS prod
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
-EXPOSE 80
+EXPOSE 5173
 CMD ["nginx", "-g", "daemon off;"]
