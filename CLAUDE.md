@@ -34,3 +34,4 @@
 - Docker commands build/up commands will be run manually by developer
 - always perform API testing using curl
 - always create separate component
+- Everything message is a conversation. Write code only when explicity said "do it now"
